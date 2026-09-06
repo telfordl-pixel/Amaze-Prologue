@@ -1,4 +1,4 @@
-name: Amaze Prologue Build
+name: Amaze Prologue Play Build
 
 on:
   workflow_dispatch:
@@ -30,28 +30,39 @@ jobs:
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
-      - name: Verify build tools
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PROLOGUE_KEYSTORE_BASE64 }}
         run: |
-          java -version
-          python3 --version
-          rustc --version
-          cargo --version
-          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "$KEYSTORE_BASE64" | base64 --decode > prologue-upload-key.jks
+
+      - name: Create signing properties
+        env:
+          STORE_PASSWORD: ${{ secrets.PROLOGUE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PROLOGUE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.PROLOGUE_KEY_PASSWORD }}
+        run: |
+          cat > signing.properties <<EOF
+          STORE_FILE=../prologue-upload-key.jks
+          STORE_PASSWORD=$STORE_PASSWORD
+          KEY_ALIAS=$KEY_ALIAS
+          KEY_PASSWORD=$KEY_PASSWORD
+          EOF
 
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
-      - name: Build Amaze debug APK
-        run: ./gradlew assembleFdroidDebug --stacktrace
+      - name: Build signed Play release bundle
+        run: ./gradlew bundlePlayRelease --stacktrace
 
-      - name: Find generated APKs
+      - name: Find generated bundles
         if: always()
-        run: find . -type f -name "*.apk" -print
+        run: find . -type f -name "*.aab" -print
 
-      - name: Upload APK
+      - name: Upload signed AAB
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Amaze-Prologue-APK
-          path: app/build/outputs/apk/**/*.apk
+          name: Prologue-Play-Release-AAB
+          path: app/build/outputs/bundle/playRelease/*.aab
           if-no-files-found: error
