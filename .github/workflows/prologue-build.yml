@@ -38,13 +38,25 @@ jobs:
           import os
           import base64
 
-          value = os.environ["KEYSTORE_BASE64"]
-          value = "".join(value.split()).strip('"').strip("'")
-          data = base64.b64decode(value)
+          value = "".join(os.environ["KEYSTORE_BASE64"].split())
+          print(f"Encoded keystore length: {len(value)}")
+
+          if len(value) != 3684:
+              raise RuntimeError(
+                  f"Keystore secret is incomplete: expected 3684 characters, got {len(value)}"
+              )
+
+          data = base64.b64decode(value, validate=True)
+
+          if len(data) != 2762:
+              raise RuntimeError(
+                  f"Decoded keystore has wrong size: expected 2762 bytes, got {len(data)}"
+              )
+
           with open("prologue-upload-key.jks", "wb") as f:
               f.write(data)
 
-          print(f"Restored keystore: {len(data)} bytes")
+          print("Keystore restored successfully: 2762 bytes")
           PY
 
       - name: Create signing properties
